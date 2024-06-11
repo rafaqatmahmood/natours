@@ -1,8 +1,11 @@
 const express = require("express");
 const fs = require("fs");
+const morgan = require("morgan");
 
 const app = express();
 
+// Middlewares
+app.use(morgan("dev"));
 app.use(express.json());
 
 // app.get("/", (req, res) => {
