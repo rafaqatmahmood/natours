@@ -4,6 +4,33 @@ const tours = JSON.parse(
   fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`, "utf-8")
 );
 
+exports.checkID = (req, res, next, value) => {
+  const id = Number(value);
+  const tour = tours.find((t) => t.id === id);
+
+  if (!tour) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Invalid ID",
+    });
+  }
+
+  next();
+};
+
+exports.checkBody = (req, res, next) => {
+  const { body } = req;
+
+  if (!body.name || !body.price) {
+    return res.status(400).json({
+      status: "fail",
+      message: "Invalid request payload",
+    });
+  }
+
+  next();
+};
+
 exports.getAllTours = (req, res) => {
   res.status(200).json({
     status: "success",
@@ -37,13 +64,6 @@ exports.getTour = (req, res) => {
   const id = Number(req.params.id);
   const tour = tours.find((t) => t.id === id);
 
-  if (!tour) {
-    return res.status(404).json({
-      status: "fail",
-      message: "Invalid ID",
-    });
-  }
-
   res.status(200).json({
     status: "success",
     data: {
@@ -56,13 +76,6 @@ exports.updateTour = (req, res) => {
   const id = Number(req.params.id);
   const tour = tours.find((t) => t.id === id);
 
-  if (!tour) {
-    return res.status(404).json({
-      status: "fail",
-      message: "Invalid ID",
-    });
-  }
-
   res.status(200).send({
     status: "success",
     data: {
@@ -74,13 +87,6 @@ exports.updateTour = (req, res) => {
 exports.deleteTour = (req, res) => {
   const id = Number(req.params.id);
   const tour = tours.find((t) => t.id === id);
-
-  if (!tour) {
-    return res.status(404).json({
-      status: "fail",
-      message: "Invalid ID",
-    });
-  }
 
   res.status(204).send({
     status: "success",
