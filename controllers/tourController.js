@@ -5,6 +5,14 @@ const Tour = require('../models/tourModel');
 //   fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`, 'utf-8'),
 // );
 
+exports.aliasTopTours = (req, res, next) => {
+  req.query.limit = '5';
+  req.query.sort = '-ratingAverage,price';
+  req.query.fields = 'name,price,ratingsAverage,summary,difficulty';
+
+  next();
+};
+
 exports.getAllTours = async (req, res) => {
   try {
     // BUILD QUERY
@@ -35,6 +43,20 @@ exports.getAllTours = async (req, res) => {
       query = query.select(fields);
     } else {
       query = query.select('-__v');
+    }
+
+    // 5) Pagination
+    const limit = req.query.limit * 1 || 10;
+    const page = req.query.page * 1 || 1;
+    const skip = limit * (page - 1);
+
+    query = query.skip(skip).limit(limit);
+
+    if (req.query.page) {
+      const toursCount = await Tour.countDocuments();
+      if (skip >= toursCount) {
+        throw new Error('This page does not exist');
+      }
     }
 
     // EXECUTE QUERY
