@@ -31,18 +31,47 @@ const createSendToken = (user, res, statusCode) => {
 };
 
 exports.signup = catchAsync(async (req, res, next) => {
-  const user = await User.create({
+  const user = new User({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
   });
 
-  createSendToken(user, res, 201);
+  const verificationToken = user.createEmailVerificationToken();
+
+  await user.save();
+
+  // Send it to user's email
+  const resetURL = `${req.protocol}://${req.get('host')}/api/v1/users/verify-email/${verificationToken}`;
+  const message = `Created a new account? Submit a new POST request to: ${resetURL}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Email Verification (valid for 24 hours)',
+      message,
+    });
+  } catch (err) {
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    return next(
+      new AppError(
+        'Something went wrong while sending the email. Try again later!',
+        500,
+      ),
+    );
+  }
+
+  res
+    .status(201)
+    .json({ status: 'success', message: 'Verification link send to email' });
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  console.log(req.body);
   const { email, password } = req.body;
 
   // Check if the email and password exist
@@ -52,13 +81,41 @@ exports.login = catchAsync(async (req, res, next) => {
 
   // Check user exist and password is correct
   const user = await User.findOne({ email }).select('+password');
-  if (!user) return next(new AppError('Invalid credentials'));
+  if (!user) return next(new AppError('Invalid credentials', 400));
+
+  // Check user email is verified
+  if (!user.isVerified) {
+    return next(new AppError('Your email is not verified', 400));
+  }
 
   const passwordValid = await user.comparePassword(password);
-  if (!passwordValid) return next(new AppError('Invalid credentials'));
+  if (!passwordValid) return next(new AppError('Invalid credentials', 400));
 
   // If everything ok, send the token to client
   createSendToken(user, res, 200);
+});
+
+exports.verifyEmail = catchAsync(async (req, res, next) => {
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token || '')
+    .digest('hex');
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new AppError('Invalid or expired verification link', 401));
+  }
+
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpires = undefined;
+
+  await user.save({ validateBeforeSave: false });
+
+  res.json({ status: 'success', message: 'Email verified successfully!' });
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -156,7 +213,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   // Get User based on the token
   const hashedToken = crypto
     .createHash('sha256')
-    .update(req.params.token)
+    .update(req.params.token || '')
     .digest('hex');
 
   const user = await User.findOne({

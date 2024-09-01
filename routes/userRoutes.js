@@ -6,6 +6,7 @@ const {
   resetPassword,
   updatePassword,
   protect,
+  verifyEmail,
 } = require('../controllers/authController');
 const {
   getUser,
@@ -20,6 +21,8 @@ const {
 
 router.post('/signup', signup);
 router.post('/login', login);
+
+router.post('/verify-email/:token', verifyEmail);
 
 router.post('/forgot-password', forgotPassword);
 router.patch('/reset-password/:token', resetPassword);
