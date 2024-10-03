@@ -17,9 +17,15 @@ const filterObj = (obj, ...allowedKeys) => {
 
 exports.getAllUsers = getAll(User);
 
-exports.getProfile = catchAsync(async (req, res, next) => {
-  res.json({ status: 'success', data: { user: req.user } });
-});
+// exports.getProfile = catchAsync(async (req, res, next) => {
+//   res.json({ status: 'success', data: { user: req.user } });
+// });
+
+exports.getMe = (req, res, next) => {
+  req.params.id = req.user.id;
+
+  next();
+};
 
 exports.updateProfile = catchAsync(async (req, res, next) => {
   const filteredObj = filterObj(req.body || {}, 'name', 'email');
